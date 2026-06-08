@@ -2,13 +2,29 @@ name: Ping Render Service
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Ping the URL
+      - name: Ping Render
         run: |
-          curl -I "${{ secrets.RENDER_URL }}"
+          echo "======================================"
+          echo "Ping started at $(date -u)"
+          echo "Target: ${{ secrets.RENDER_URL }}"
+          echo "======================================"
+
+          curl --fail \
+               --silent \
+               --show-error \
+               --location \
+               "${{ secrets.RENDER_URL }}"
+
+          echo ""
+          echo "======================================"
+          echo "Ping successful"
+          echo "Completed at $(date -u)"
+          echo "======================================"
