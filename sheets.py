@@ -8,9 +8,15 @@ from collections import defaultdict
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets"
 ]
+import json
+import os
 
-creds = Credentials.from_service_account_file(
-    "creds.json",
+creds_info = json.loads(
+    os.environ["GOOGLE_CREDENTIALS"]
+)
+
+creds = Credentials.from_service_account_info(
+    creds_info,
     scopes=SCOPES
 )
 
