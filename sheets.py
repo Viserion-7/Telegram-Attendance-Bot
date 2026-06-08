@@ -1,3 +1,5 @@
+import os
+import json
 from google.oauth2.service_account import Credentials
 import gspread
 
@@ -8,26 +10,31 @@ from collections import defaultdict
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets"
 ]
-import json
-import os
 
-creds_info = json.loads(
-    os.environ["GOOGLE_CREDENTIALS"]
-)
+if os.getenv("GOOGLE_CREDENTIALS"):
 
-creds = Credentials.from_service_account_info(
-    creds_info,
-    scopes=SCOPES
-)
+    creds_info = json.loads(
+        os.getenv("GOOGLE_CREDENTIALS")
+    )
+
+    creds = Credentials.from_service_account_info(
+        creds_info,
+        scopes=SCOPES
+    )
+
+else:
+
+    creds = Credentials.from_service_account_file(
+        "creds.json",
+        scopes=SCOPES
+    )
 
 client = gspread.authorize(creds)
-
 spreadsheet = client.open_by_key(SPREADSHEET_ID)
 
 employees_ws = spreadsheet.worksheet("Employees")
 attendance_ws = spreadsheet.worksheet("Attendance")
 leave_ws = spreadsheet.worksheet("Leave Summary")
-
 
 def get_employee_by_telegram_id(telegram_id):
 
@@ -39,7 +46,6 @@ def get_employee_by_telegram_id(telegram_id):
             return row
 
     return None
-
 
 def already_marked_today(employee_id):
 
@@ -57,7 +63,6 @@ def already_marked_today(employee_id):
 
     return False
 
-
 def record_attendance(employee_id, status):
 
     attendance_ws.append_row(
@@ -69,7 +74,6 @@ def record_attendance(employee_id, status):
         ]
     )
 
-
 def get_leave_balance(employee_id):
 
     records = leave_ws.get_all_records()
@@ -80,7 +84,6 @@ def get_leave_balance(employee_id):
             return row
 
     return None
-
 
 def use_leave(employee_id):
 
@@ -105,7 +108,6 @@ def use_leave(employee_id):
 
     return False
 
-
 def initialize_leave_record(employee_id):
 
     existing = get_leave_balance(employee_id)
@@ -120,7 +122,6 @@ def initialize_leave_record(employee_id):
             4
         ]
     )
-
 
 def get_today_report():
 
@@ -159,7 +160,6 @@ def get_today_report():
         "present": present,
         "leave": leave
     }
-
 
 def generate_monthly_report():
 
