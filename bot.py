@@ -33,8 +33,7 @@ from telegram.ext import JobQueue
 from datetime import time
 from collections import deque
 import logging
-from flask import Flask, jsonify
-from flask import render_template_string
+from flask import Flask, render_template_string, redirect
 from threading import Thread
 from datetime import datetime
 import os
@@ -375,9 +374,11 @@ def run_web():
         host="0.0.0.0",
         port=port
     )
+
 @web_app.route("/")
 def home():
     return redirect("/health")
+
 @web_app.route("/health")
 def health():
 
