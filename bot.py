@@ -375,7 +375,9 @@ def run_web():
         host="0.0.0.0",
         port=port
     )
-
+@web_app.route("/")
+def home():
+    return redirect("/health")
 @web_app.route("/health")
 def health():
 
