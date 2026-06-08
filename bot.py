@@ -376,12 +376,6 @@ def run_web():
         port=port
     )
 
-@web_app.route("/")
-def home():
-    return {
-        "status": "online"
-    }
-
 @web_app.route("/health")
 def health():
 
