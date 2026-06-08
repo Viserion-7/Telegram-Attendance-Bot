@@ -10,21 +10,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Ping Render
+      - name: Ping Render Health Endpoint
         run: |
-          echo "======================================"
-          echo "Ping started at $(date -u)"
-          echo "Target: ${{ secrets.RENDER_URL }}"
-          echo "======================================"
+          echo "Pinging Render at $(date -u)"
+          curl \
+            --silent \
+            --location \
+            --max-time 30 \
+            "${{ secrets.RENDER_URL }}/health" \
+            > /dev/null || true
 
-          curl --fail \
-               --silent \
-               --show-error \
-               --location \
-               "${{ secrets.RENDER_URL }}"
-
-          echo ""
-          echo "======================================"
-          echo "Ping successful"
-          echo "Completed at $(date -u)"
-          echo "======================================"
+          echo "Ping completed"

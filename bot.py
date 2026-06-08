@@ -31,6 +31,35 @@ from sheets import (
 
 from telegram.ext import JobQueue
 from datetime import time
+from collections import deque
+import logging
+from flask import Flask, jsonify
+from flask import render_template_string
+from threading import Thread
+from datetime import datetime
+import os
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
+
+logging.getLogger("httpx").setLevel(logging.ERROR)
+logging.getLogger("telegram").setLevel(logging.ERROR)
+logging.getLogger("telegram.ext").setLevel(logging.ERROR)
+
+recent_logs = deque(maxlen=50)
+web_app = Flask(__name__)
+
+def bot_log(message):
+
+    entry = {
+        "time": datetime.now().isoformat(),
+        "message": message
+    }
+
+    logging.info(message)
+    recent_logs.append(entry)
 
 async def start(
     update: Update,
@@ -53,6 +82,8 @@ async def start(
     initialize_leave_record(
         employee["Employee ID"]
     )
+
+    bot_log(f"{employee['Employee']} ({employee['Employee ID']}) opened bot")
 
     keyboard = [
         [
@@ -118,12 +149,14 @@ async def button_handler(
             await query.edit_message_text(
                 "Attendance already marked today."
             )
+            bot_log(f"{employee_name} ({employee_id}) attempted duplicate attendance")
             return
 
         record_attendance(
             employee_id,
             "Present"
         )
+        bot_log(f"{employee_name} ({employee_id}) marked Present")
 
         await query.edit_message_text(
             f"✅ Attendance recorded.\n\nEmployee: {employee_name}"
@@ -149,12 +182,15 @@ async def button_handler(
             await query.edit_message_text(
                 "❌ No leaves remaining."
             )
+            bot_log(f"{employee_name} ({employee_id}) attempted leave with no balance")
             return
 
         record_attendance(
             employee_id,
             "Leave"
         )
+
+        bot_log(f"{employee_name} ({employee_id}) marked Leave")
 
         balance = get_leave_balance(
             employee_id
@@ -175,7 +211,10 @@ async def button_handler(
             await query.edit_message_text(
                 "Leave record not found."
             )
+            bot_log(f"{employee_name} ({employee_id}) requested balance for non-existent record")
             return
+
+        bot_log(f"{employee_name} ({employee_id}) checked leave balance")
 
         await query.edit_message_text(
             f"""📊 Leave Summary
@@ -216,6 +255,7 @@ async def report_command(
         return
 
     report = generate_monthly_report()
+    bot_log(f"Admin {update.effective_user.id} generated monthly report")
 
     message = "📊 Monthly Attendance Report\n\n"
 
@@ -252,6 +292,7 @@ async def today_command(
         return
 
     report = get_today_report()
+    bot_log(f"Admin {update.effective_user.id} generated today's report")
 
     present_count = len(
         report["present"]
@@ -311,6 +352,100 @@ async def send_daily_reminder(context):
         except Exception as e:
             print(e)
 
+async def error_handler(
+    update: object,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    logging.error(
+        "Exception occurred",
+        exc_info=context.error
+    )
+
+def run_web():
+
+    port = int(
+        os.environ.get(
+            "PORT",
+            10000
+        )
+    )
+
+    web_app.run(
+        host="0.0.0.0",
+        port=port
+    )
+
+@web_app.route("/")
+def home():
+    return {
+        "status": "online"
+    }
+
+@web_app.route("/health")
+def health():
+
+    logs = list(recent_logs)[-20:]
+
+    html = """
+    <html>
+    <head>
+        <title>Attendance Bot Health</title>
+
+        <meta http-equiv="refresh" content="5">
+
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 900px;
+                margin: auto;
+                padding: 20px;
+                background: #f5f5f5;
+            }
+
+            h1 {
+                color: #333;
+            }
+
+            .log {
+                background: white;
+                padding: 12px;
+                margin: 8px 0;
+                border-radius: 8px;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            }
+
+            .time {
+                color: #777;
+                font-size: 12px;
+            }
+        </style>
+    </head>
+
+    <body>
+
+        <h1>🤖 Attendance Bot Status</h1>
+
+        <p>🟢 Healthy</p>
+
+        <h2>Recent Activity</h2>
+
+        {% for log in logs %}
+        <div class="log">
+            <div class="time">{{ log.time }}</div>
+            <div>{{ log.message }}</div>
+        </div>
+        {% endfor %}
+
+    </body>
+    </html>
+    """
+
+    return render_template_string(
+        html,
+        logs=logs
+    )
+
 def main():
 
     app = (
@@ -366,7 +501,13 @@ def main():
         )
     )
 
-    print("Bot Started...")
+    Thread(
+        target=run_web,
+        daemon=True
+    ).start()
+
+    bot_log("Bot Started")
+    app.add_error_handler(error_handler)
 
     app.run_polling()
 
